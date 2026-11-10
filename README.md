@@ -1,6 +1,6 @@
 # PingCode Skills
 
-面向 AI 编程助手的 PingCode 技能集合，遵循 [Agent Skills](https://agentskills.io) 规范，可通过 GitHub 地址在线安装。
+面向 AI 编程助手的 PingCode Agent Skills 集合，遵循 [Agent Skills](https://agentskills.io) 规范，可通过 GitHub 地址在线安装。内置 PingCode CLI 操作与 `#工作项编号` 驱动的开发流程，兼容 OpenCode、Claude Code、Cursor 等 AI 编程助手。
 
 ## 安装
 
