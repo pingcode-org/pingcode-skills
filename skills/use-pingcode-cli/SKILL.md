@@ -1,6 +1,6 @@
 ---
 name: use-pingcode-cli
-description: 通过已安装的 `pc`（PingCode Open API v2.0 命令行客户端）完成用户的自然语言任务——查项目、按编号获取工作项、创建工作项/需求/工单/用例、改状态、加成员、发评论、查报表等。当用户用中文描述想在 PingCode 里做某件事（如"看一下 ABC-42 这个工作项"、"在项目 ABC 里创建一个标题为 XYZ 的用户故事"、"查一下我负责的缺陷"、"给这个工作项加条评论"）时使用。本 skill 自包含、可在任意仓库/目录下运行，调用的是 PATH 上已安装的 `pc`，不依赖 CLI 源码。
+description: 通过已安装的 `pc`（PingCode Open API v2.0 命令行客户端，npm 包 `@pingcode/cli`）完成用户的自然语言任务——查项目、按编号获取工作项、创建工作项/需求/工单/用例、改状态、加成员、发评论、查报表等。当用户用中文描述想在 PingCode 里做某件事（如"看一下 ABC-42 这个工作项"、"在项目 ABC 里创建一个标题为 XYZ 的用户故事"、"查一下我负责的缺陷"、"给这个工作项加条评论"）时使用。本 skill 自包含、可在任意仓库/目录下运行，调用的是 PATH 上已安装的 `pc`，不依赖 CLI 源码。
 ---
 
 # Use PingCode CLI (`pc`, REST API v2.0)
@@ -15,7 +15,7 @@ description: 通过已安装的 `pc`（PingCode Open API v2.0 命令行客户端
 ## 步骤
 
 1. **预检 CLI 与鉴权。**
-   - `command -v pc` 确认已安装；没有就按 `reference.md` 的安装方式提示用户（Homebrew / Release 二进制 / cargo install），不要继续。
+   - `command -v pc` 确认已安装；没有就按 `reference.md` 的安装方式提示用户（npm 包 `@pingcode/cli`、Homebrew、Release 二进制或 cargo install），不要继续。
    - 跑 `pc doctor` 验证配置与连通。它在 stdout 输出结构化 JSON：`ok` 为是否全部通过，`checks[]` 每项有稳定 `id`、`status`（pass/fail/warn/info/skipped），失败项的 `remediation.steps` 是可直接照做的修复步骤；退出码 0=通过、1=有检查失败、2=命令自身异常。
    - 退出码非 0 时，读 `checks[]` 里 `status=fail` 的项（如 `credentials_present`/`credential_pair` 缺凭据、`base_url_format`/`base_url_reachable` 地址或网络问题、`token_exchange`/`api_auth` 凭据无效），把对应 `remediation.steps` 转述给用户并停下让其处理；鉴权类问题不要反复重试。
    - 未登录时让用户自己执行 `pc login`（自动化场景用 `pc login --with-token` 从 stdin 读令牌）；企业凭据用 `pc login --method client-credentials --client-id ... --client-secret ...`。**不要让用户在聊天里粘贴密钥。**

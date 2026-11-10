@@ -34,7 +34,7 @@ npx skills remove use-pingcode-cli -g
 
 | Skill | 说明 |
 | --- | --- |
-| [`use-pingcode-cli`](skills/use-pingcode-cli/SKILL.md) | 基于 PingCode REST API v2.0，通过 `pc` 完成查询、按编号获取工作项、创建、改状态、评论等操作 |
+| [`use-pingcode-cli`](skills/use-pingcode-cli/SKILL.md) | 基于 PingCode REST API v2.0，通过 `pc` 完成查询、按编号获取工作项、创建、改状态、评论等操作；CLI 的 npm 包为 `@pingcode/cli` |
 | [`workitem-driven-development`](skills/workitem-driven-development/SKILL.md) | 通过 `#工作项编号` 驱动开发任务：取工作项、认领、分支、提交、PR、合并与 `docs/` 沉淀 |
 
 ## 目录结构

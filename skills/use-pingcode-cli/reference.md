@@ -30,6 +30,7 @@
 
 - 已安装时直接用 `pc ...`。确认：`command -v pc`、`pc --version`。
 - 未安装时提示用户（不要假设源码在本地）：
+  - npm（需要 Node.js >= 22，推荐）：`npm install -g @pingcode/cli`；需要最新预发布版用 `npm install -g @pingcode/cli@next`。安装后命令是 `pc`。临时试用：`npx --yes @pingcode/cli@next --version`。
   - Homebrew：`brew tap shaunxu/tap && brew install pc`
   - 或 GitHub Release 的一键脚本 / 直接下载二进制（见项目 README「安装」）。
   - 有 Rust 工具链也可 `cargo install`。
