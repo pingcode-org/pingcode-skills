@@ -34,7 +34,7 @@ npx skills remove use-pingcode-cli -g
 
 | Skill | 说明 |
 | --- | --- |
-| [`use-pingcode-cli`](skills/use-pingcode-cli/SKILL.md) | 通过已安装的 `pc` 命令行客户端，用自然语言完成 PingCode 查询、创建、更新等操作 |
+| [`use-pingcode-cli`](skills/use-pingcode-cli/SKILL.md) | 基于 PingCode REST API v2.0，通过 `pc` 完成查询、按编号获取工作项、创建、改状态、评论等操作 |
 
 ## 目录结构
 
@@ -74,4 +74,5 @@ npx skills remove use-pingcode-cli -g
 
 - Agent Skills 规范：<https://agentskills.io>
 - Skills CLI：<https://github.com/vercel-labs/skills>
-- PingCode Open API：<https://open.pingcode.com>
+- PingCode REST API v2 文档：<https://developer.pingcode.com/restapi/pingcode/overview>
+- PingCode Open API 根地址：<https://open.pingcode.com>
