@@ -69,6 +69,26 @@ function parseFrontmatter(content) {
   return data;
 }
 
+/** 检测 frontmatter 中未加引号且前面有空格的 #（YAML 会当作注释）。 */
+function findUnquotedHash(content) {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) return null;
+
+  for (const line of match[1].split(/\r?\n/)) {
+    const kv = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (!kv) continue;
+
+    const [, key, rawValue] = kv;
+    const value = rawValue.trim();
+    if (!value || value.startsWith('"') || value.startsWith("'") || /^[|>][+-]?$/.test(value)) {
+      continue;
+    }
+    if (/(^|\s)#/.test(value)) return { key, value };
+  }
+
+  return null;
+}
+
 async function collectSkillFiles(dir, depth = 0, files = []) {
   if (depth > MAX_DEPTH) return files;
 
@@ -116,6 +136,14 @@ async function main() {
     if (!data) {
       fail(file, "缺少合法的 YAML frontmatter（--- ... ---）");
       continue;
+    }
+
+    const hashIssue = findUnquotedHash(content);
+    if (hashIssue) {
+      fail(
+        file,
+        `frontmatter 字段 "${hashIssue.key}" 含未加引号的 " #"，YAML 会把 # 后的内容当作注释；请用单引号或双引号包裹整个值`,
+      );
     }
 
     const name = typeof data.name === "string" ? data.name.trim() : "";
