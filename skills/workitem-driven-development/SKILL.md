@@ -17,6 +17,7 @@ PingCode 操作全部依赖 **`use-pingcode-cli` skill**：先按它预检 `pc` 
 - 不主动 `commit` / `push` / 合并 PR；除非用户明确要求。
 - 危险操作（`reset --hard`、`restore`、`clean -fd`、`stash drop`、对已推送历史 rebase/amend、任何 `push --force*`）执行前必须说明影响并征得确认；**任何情况下都不对集成分支强制推送**。
 - 不声称执行过未实际运行的检查；CI 失败或缺失要如实说明。
+- 发起评审时必须**双通道通知**：在 PingCode 工作项评论里 @ 评审人，同时在 GitHub PR 上 @ 对应的 GitHub 帐户并添加 review request；只加 GitHub reviewer 不算完成通知。
 - 需要长期保留的文档统一沉淀到 `docs/`，不散落在源码目录、个人笔记或聊天记录里。
 
 ## 0. 识别编号与预检
@@ -110,6 +111,12 @@ git checkout -b '#ABC-42/(feat)user-login'
 - commit message 用 Conventional Commits：`<type>[optional scope]: <description>`，如 `feat: #ABC-42 user-login` 的拆分提交可写 `feat(auth): add login form`。
 - PR 标题格式：`<type>: #<Identifier> <简述>`，如 `feat: #ABC-42 user-login`。
 - 经用户确认再 `git push -u origin <branch>` 并开 PR 到集成分支；PR 描述写清变更、原因、验证、风险与回滚。
+- 开 PR 后执行「发起评审」：评审人由用户指定优先；未指定时从工作项参与者、团队或仓库协作者中提出候选，**经用户确认**后再邀请。
+- 评审通知必须双通道：
+  1. **GitHub**：把评审人加入 PR requested reviewers，并在 PR 评论中 `@<github-login>`，例如 `@octocat 麻烦评审一下，谢谢`；
+  2. **PingCode**：在工作项发纯文本评论，用 `[@<用户ID>|<登录名>]` @ 同一评审人，附 PR 地址。
+- PingCode 用户到 GitHub 帐户的映射必须核实后使用：优先同名 login，其次按 GitHub 组织成员、提交邮箱或姓名比对；仍不确定时向用户确认，不要臆造或 @ 错人。
+- 发起评审后明确告知用户「谁在评审、通知发到了哪两个地方、PR 当前状态」；任务结束时再次提醒评审人与状态。
 - 默认 squash 合并：`gh pr merge <n> --squash --delete-branch`；不用 `--merge`/`--rebase`/`--auto`，不用 `--admin` 绕过保护。
 - PR 落后 base（BEHIND）时：`git fetch origin` 后 rebase 到 `origin/<集成分支>`；不要用 `--admin`，也不要把集成分支 merge 进工作分支。rebase 后复跑验证，经用户确认再 `git push --force-with-lease`。
 - 合并后确认 PR 为 MERGED，再切回集成分支 `git pull --ff-only` 并删除本地工作分支。
@@ -117,8 +124,9 @@ git checkout -b '#ABC-42/(feat)user-login'
 ## 8. 合并后收尾
 
 1. 复查工作项状态：**已是完成态（如“已修复”/“已完成”，常由 PR 合并自动化流转）则不要重复设置**，仅核对结果；否则才把状态置为完成态。
-2. 无论是否改状态，都追加一条纯文本总结评论：交付内容、验证结果、后续衔接。
-3. 不把过程信息另存本地；需要长期保留的经验按第 10 节沉淀。
+2. 复查评审状态：明确列出评审人、评审请求所在的两端（PingCode 工作项 / GitHub PR）以及当前是否已通过；未通过时提醒用户等待评审，不要自行绕过。
+3. 无论是否改状态，都追加一条纯文本总结评论：交付内容、验证结果、评审人、后续衔接。
+4. 不把过程信息另存本地；需要长期保留的经验按第 10 节沉淀。
 
 ## 9. Code Review（按需）
 
