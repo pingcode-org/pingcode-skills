@@ -185,7 +185,7 @@ Conventional Commits：
    gh pr create --base <集成分支>
    ```
 2. PR 描述写清：变更、原因、验证、风险与回滚。
-3. PR 创建后按「发起评审（双通道）」通知评审人，等 CI 与必需审批通过；不自行合并。
+3. PR 创建后按「发起评审」通知评审人（PingCode 工作项 @ 为必须，GitHub 视能否对应账号而定），等 CI 与必需审批通过；不自行合并。
 4. 用户确认后 squash 合并：
    ```bash
    gh pr merge <n> --squash --delete-branch
@@ -194,23 +194,27 @@ Conventional Commits：
    - 删除远端分支前确认 PR 已 MERGED；误删导致 PR 关闭时，推回分支后 `gh pr reopen` 再合并。
 5. 合并后切回集成分支、`git pull --ff-only`、删除本地工作分支。
 
-### 发起评审（双通道）
+### 发起评审
 
-PR 创建后必须完成两个通道的通知，缺一不算通知到位：
+PR 创建后必须 @ 到 PingCode 成员发起评审；GitHub 通道是可选增强，能核实到账号就一起做。
 
 1. **确定评审人**：用户指定优先；未指定时从工作项参与者、项目成员或仓库协作者中提出候选，经用户确认后使用。
-2. **解析 GitHub 帐户**：先从 PingCode 取用户信息，再核实 GitHub login。不要凭昵称猜测。
+2. **PingCode 通知（必须）**：在工作项评论中 @ 评审人，并附 PR 地址：
    ```bash
-   pc organization user list --keywords "<姓名或登录名>"
-   # 记录用户 ID、登录名（name）、邮箱（email）
-
+   pc comments create --data '{"principal_type":"workitem","principal_id":"<工作项id>","content":"[@<用户ID>|<登录名>] 麻烦评审 PR：<PR URL>\n\n变更概要……"}'
+   ```
+   - 用户信息来自 `pc organization user list --keywords "<姓名或登录名>"`，记录用户 ID 与登录名。
+   - 提及语法只认 `[@<用户ID>|<登录名>]`，只写 `@登录名` 不触发通知。
+   - 遵守 URL 边界规则：URL 后必须换行或空格，禁止紧跟全角标点。
+3. **解析 GitHub 帐户（可选，尽力而为）**：能唯一确定就一并 @，定不下来就跳过并告知用户，不要凭昵称猜。
+   ```bash
    gh api users/<github-login> --jq '{login,name,email}'
    gh api orgs/<github-org>/members --paginate --jq '.[].login'
    ```
    - 优先使用与 PingCode 登录名相同的 GitHub login。
    - 不一致时，用邮箱前缀、GitHub 组织成员名单、`git log` 提交作者或姓名比对。
    - 仍无法唯一确定时，把候选列给用户确认；确认前不要 @ 任何人。
-3. **GitHub 通知**：请求评审并在 PR 评论中 @：
+4. **GitHub 通知（仅当账号已确认）**：请求评审并在 PR 评论中 @：
    ```bash
    gh api -X POST repos/<owner>/<repo>/pulls/<n>/requested_reviewers \
      -f 'reviewers[]=<github-login>'
@@ -218,13 +222,7 @@ PR 创建后必须完成两个通道的通知，缺一不算通知到位：
    ```
    - 部分仓库使用 `gh pr edit <n> --add-reviewer <login>` 会因 Projects (classic) 弃用报 GraphQL 错误，改用上面的 REST API。
    - 只添加 requested reviewer 不会在 PR 时间线产生 @ 通知，评论 @ 必须单独发送。
-4. **PingCode 通知**：在工作项评论中 @ 同一评审人，并附 PR 地址：
-   ```bash
-   pc comments create --data '{"principal_type":"workitem","principal_id":"<工作项id>","content":"[@<用户ID>|<登录名>] 麻烦评审 PR：<PR URL>\n\n变更概要……"}'
-   ```
-   - 提及语法只认 `[@<用户ID>|<登录名>]`，只写 `@登录名` 不触发通知。
-   - 遵守 URL 边界规则：URL 后必须换行或空格，禁止紧跟全角标点。
-5. **汇报结果**：明确告诉用户评审人是谁、两个通道都已通知、PR 当前状态（等待评审 / CI 失败 / 可合并）；任务收尾时再提醒一次，评审未通过前不合并。
+5. **汇报结果**：明确告诉用户评审人是谁、通知发到了哪些通道（PingCode 必做；GitHub 做了/因找不到账号未做）、PR 当前状态（等待评审 / CI 失败 / 可合并）；任务收尾时再提醒一次，评审未通过前不合并。
 
 ### PR 落后于 base（BEHIND）
 
@@ -346,8 +344,9 @@ CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$REPO_NAME"
 - 不澄清需求、不先给方案就落盘改代码。
 - 直接在集成分支改代码并提交。
 - 未确认就创建分支、推送、开 PR 或合并。
-- 只在 GitHub 添加 reviewer 或只在工作项评论，没有完成 PingCode + GitHub 双通道 @。
-- 未核实 PingCode 用户与 GitHub 帐户的映射就 @ 错人，或映射不确定时直接跳过 GitHub 通知。
+- 只在 GitHub 添加 reviewer，没有在 PingCode 工作项 @ 到评审人。
+- 能核实到 GitHub 账号却不去分配/ @，或反过来未核实就 @ 错人、把猜测的 login 当真。
+- 找不到 GitHub 账号就整个跳过评审通知，连 PingCode 通道也不做。
 - 开 PR 后不告诉用户评审人是谁、PR 处于什么状态。
 - 把无关改动混进一个提交，或提交生成物/依赖目录。
 - 没跑验证却说“测试通过”。
