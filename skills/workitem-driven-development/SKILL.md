@@ -1,21 +1,27 @@
 ---
 name: workitem-driven-development
-description: '当用户给出 PingCode 工作项编号（形如 #ABC-42）并要求开发、修复、实现、继续任务，或明确要求按 #编号 走分支、提交、开 PR、合并、评审时使用。整合 PingCode 工作项驱动流程、Conventional Commits、squash 合并与 docs/ 文档沉淀，依赖 use-pingcode-cli skill。没有工作项编号的普通任务不要触发。'
+description: '当用户给出 PingCode 工作项编号（项目工作项形如 #ABC-42，Ship 产品工单形如 #ITS-T3745）并要求开发、修复、实现、继续任务，或明确要求按 #编号 走分支、提交、开 PR、合并、评审时使用。整合 PingCode 工作项驱动流程、Conventional Commits、squash 合并与 docs/ 文档沉淀，依赖 use-pingcode-cli skill。没有工作项编号的普通任务不要触发。'
 ---
 
 # 工作项驱动的 Git 工作流
 
-**触发条件**：任务带 PingCode 工作项编号 `#<Identifier>`（如 `#ABC-42`），且用户要求开发、修复、实现、继续、评审或合并。没有编号的普通代码修改不要套用本 skill 的认领、评论、分支命名规则，按仓库自身规范执行。
+**触发条件**：任务带 PingCode 编号 `#<Identifier>`（项目工作项如 `#ABC-42`，Ship 产品工单如 `#ITS-T3745`），且用户要求开发、修复、实现、继续、评审或合并。没有编号的普通代码修改不要套用本 skill 的认领、评论、分支命名规则，按仓库自身规范（如 `feat/<kebab>`）执行。
 
 PingCode 操作全部依赖 **`use-pingcode-cli` skill**：先按它预检 `pc` 与登录，再使用本流程；不要臆造 `pc` 命令或参数。本 skill 只规定流程和 Git/文档规范，API 细节以 `use-pingcode-cli` 为准。
 
 详细子流程、Feature 拆解、提交类型和反模式见 [`reference.md`](reference.md)。
+
+## 与仓库自身规范的关系
+
+本 skill 是通用缺省实现：**以目标仓库的 `AGENTS.md` / `CONTRIBUTING` / CI 配置为准，冲突时仓库规范优先**。仓库没写的地方才用本 skill 的默认值。在某个仓库摸到的新经验，优先回流到该仓库的 `AGENTS.md` / `docs/`，再判断是否收敛进本 skill。
 
 ## 硬规则
 
 - 不在集成分支（常见 `develop`/`main`，以仓库实际保护规则为准）直接改文件、提交或推送；一切变更走工作分支 + PR。
 - 不主动 `commit` / `push` / 合并 PR；除非用户明确要求。
 - 危险操作（`reset --hard`、`restore`、`clean -fd`、`stash drop`、对已推送历史 rebase/amend、任何 `push --force*`）执行前必须说明影响并征得确认；**任何情况下都不对集成分支强制推送**。
+- **不读、不遍历、不改机器生成的目录与文件**：依赖目录、构建产物、缓存/覆盖率、生成的原生工程、`.env`/编辑器目录；判据以 `.gitignore` 为唯一基准。锁文件与 `*.log` 按需 grep，不整读。密钥不输出到对话、不写入文件、不提交。
+- 不手改 codegen / 构建产物，生成物只能由生成器重新生成。
 - 不声称执行过未实际运行的检查；CI 失败或缺失要如实说明。
 - 每次开完 PR 都要**主动问用户是否发评论提醒评审**（「只提交、不通知」也是合法选项）。是否通知由用户定，但**不能不问**；也**不能未经确认就 @ 任何人**。用户确认通知时，优先推荐 PingCode 用户作候选，允许改选他人或只提交。
 - 需要长期保留的文档统一沉淀到 `docs/`，不散落在源码目录、个人笔记或聊天记录里。
@@ -33,6 +39,10 @@ PingCode 操作全部依赖 **`use-pingcode-cli` skill**：先按它预检 `pc` 
 
 ## 1. 取工作项详情
 
+**先判编号类型**：`#<项目前缀>-<序号>` 是项目工作项（`pc pjm workitem ...`）；`#<产品前缀>-<序号>`（如 `#ITS-T3745`）是 Ship 产品工单（`pc ship ticket ...`）。判不准时先按 pjm get，404 再换 ship，不要在同一条命令上反复试。
+
+项目工作项：
+
 ```bash
 pc pjm workitem get ABC-42
 ```
@@ -46,6 +56,17 @@ pc pjm workitem get ABC-42
 - `parent_id` 非空时，拉父工作项的标题和描述，理解上层背景。
 - 用 `pc pjm workitem list --project-id <项目ID> --parent-id <工作项ID>` 查子项：**先只读标题**掌握全貌，再按需读相关子项详情，不要一次拉全部。
 - Feature 拆解时，用 `pc pjm workitem-relation list <工作项ID>` 查关联工作项，按需读取。
+
+Ship 产品工单：
+
+```bash
+pc ship ticket get ITS-T3745                 # 支持 whole_identifier / short_id / id
+pc ship product list --keywords "<产品名>"   # 需要 list 时先解析 product id
+pc ship ticket list --product-id <产品ID> --keywords "T3745"
+```
+
+- **`ticket list` 必须带 `--product-id`**：不带时 `--keywords` 只按编号匹配，会命中其他产品的同号工单。只用 `get` 时不需先解析 product id。
+- 工单详情里拿到的产品、状态、类型 id 复用方式与项目工作项一致；后续认领、评论、分支、PR 流程相同。
 
 ## 2. 判断工作项类型
 
@@ -75,10 +96,11 @@ pc pjm workitem update <工作项id> --data '{"state_id":"<进行中状态ID>"}'
 ## 5. 理解、拆分与方案先行
 
 1. 读标题、描述、评论、附件，结合父/子/关联工作项理解验收意图。
-2. 工作量较大（跨模块、多阶段、可并行）时，先提示用户是否创建子工作项（类型为任务），用户同意后再创建；再询问是否按顺序逐个领取执行。
+2. 工作量较大（跨模块、多阶段、可并行）时，先提示用户是否创建子工作项（类型为任务），用户同意后再创建；再询问是否按顺序逐个领取执行。每个子任务仍各自走认领 → 分支 → PR 全流程。此步只适用于非 Feature 的执行类工作项，Feature 走拆解流程，Code Review 不受此约束。
 3. 先把方案与要改的文件告知用户，**不要落盘**；用户确认后才开始改代码。
 4. 沟通中明确的关键结论、范围边界、实施进展、完成总结，及时以**纯文本**评论发到工作项：
    - 用换行分段、`-`/`1.` 列点，不要写 HTML 标签。
+   - **评论正文用 JSON 序列化生成，不要手拼**：正文含换行/引号/反斜杠时，用 `jq -n --arg content "$COMMENT"`（或等价方式）生成请求体，经 `--data @-` 或 `--data @文件` 传入。手写 JSON 时只有 `\n` 表示换行，写成 `\\n` 会在正文留下字面量 `\n`；发送前用 `--dry-run` 核对 `content` 原样正确。
    - **URL 边界（PingCode 自动链接规则，实测）**：评论里的裸链接（GitHub PR、文件 URL 等）后若紧跟全角标点（`（）：，。；！？`），PingCode 不会把它识别为 URL 终止，会把后面的文字一并吞进超链接导致链接失效。规则：
      - 裸链接后必须接**空格或换行**，再接任何说明文字；禁止 `https://x.com/639（base: develop）` 这类写法。
      - 推荐把补充信息另起一行或用半角括号并与 URL 之间留空格，例如：`PR：https://github.com/atinc/reping/pull/639 （base: develop）`，或干脆分行写 URL 与说明。
@@ -103,10 +125,13 @@ git checkout -b '#ABC-42/(feat)user-login'
 - 分支名先给用户确认；拿不准时 `git check-ref-format --branch '<name>'` 验证。
 - 不在集成分支时不要自行切换；工作区不干净时让用户决定提交、stash 或丢弃。
 - 所有修改与提交都在工作分支进行；切换分支需用户确认。
+- 无工作项编号的任务按仓库自身分支规范命名（如 `feat/<kebab>`）；有编号时统一用上面的 `#<Identifier>/(<type>)<kebab>`。
 
 ## 7. 提交与 PR
 
 - 提交前运行仓库文档或 CI 定义的验证；按受影响包/模块跑 lint、typecheck、test、build；不能运行要说明原因。
+- 涉及页面/视图改动，且当前环境提供浏览器自动化工具（`browser_*`，如 Playwright MCP）时，在单测之外用真实浏览器做一次冒烟：页面可达、关键交互（编辑/保存/切换/提交）符合预期、控制台无报错。没有这类工具时退化为既有自动化测试，并在 PR 描述注明「未做真实浏览器验证」及原因；不得声称跑过未执行的浏览器验证。
+- 契约/代码生成变更后重新生成并确认生成物已更新；**不手改生成物**。
 - 只暂存本任务相关文件；提交前看 `git status`、`git diff`。
 - commit message 用 Conventional Commits：`<type>[optional scope]: <description>`，如 `feat: #ABC-42 user-login` 的拆分提交可写 `feat(auth): add login form`。
 - PR 标题格式：`<type>: #<Identifier> <简述>`，如 `feat: #ABC-42 user-login`。
@@ -121,6 +146,8 @@ git checkout -b '#ABC-42/(feat)user-login'
   - **GitHub（尽力而为）**：能核实到对方的 GitHub login 就一并加 requested reviewers 并评论 `@<github-login>`；核实不到就跳过并说明，不要臆造 login 或 @ 错人。
 - 无论用户选择哪种，都告知「本次是否通知、通知了谁、PR 当前状态」；任务结束时再提醒一次，评审未通过前不合并。
 - 默认 squash 合并：`gh pr merge <n> --squash --delete-branch`；不用 `--merge`/`--rebase`/`--auto`，不用 `--admin` 绕过保护。
+- 合并前先确认可合并：`gh pr view <n> --json statusCheckRollup,mergeStateStatus,reviewDecision`；CI 失败或必需审批未满足就等，不要绕过。
+- **已 Approve 的 PR 不为非阻塞建议追加动工**：Approve + CI 全绿 + 可合并时，P1/P2、「建议修改后合入」这类非阻塞意见不阻塞合并，除非用户明确要求处理，否则直接进入合并确认；只有 REQUEST_CHANGES、P0 阻断问题或 CI 失败才必须先修并重新请求评审。
 - PR 落后 base（BEHIND）时：`git fetch origin` 后 rebase 到 `origin/<集成分支>`；不要用 `--admin`，也不要把集成分支 merge 进工作分支。rebase 后复跑验证，经用户确认再 `git push --force-with-lease`。
 - 合并后确认 PR 为 MERGED，再切回集成分支 `git pull --ff-only` 并删除本地工作分支。
 
@@ -136,16 +163,18 @@ git checkout -b '#ABC-42/(feat)user-login'
 对 `#<Identifier>` 或指定 PR 做评审时：
 
 1. 先查工作项状态与评论，确认没有进行中的评审或已有结论；有则停下告知用户，除非用户明确要求重新评审。
-2. 先发一条纯文本评论，注明当前用户开始 Code Review 与 PR 地址，作为占用标记。
+2. 先发一条纯文本评论，注明当前用户开始 Code Review 与 PR 地址，作为占用标记；**先留痕再看代码**。
 3. 在系统临时目录建独立只读 worktree，例如 `<临时目录>/${REPO_NAME}-pr<n>`；不要在当前工作区执行 git 或构建操作。
-4. 只做代码与规范检查；是否运行 lint/test/构建按仓库评审策略，未运行不要声称运行过，CI 结果引用 PR status checks。
+4. 只做代码与规范检查；**默认不跑 lint / typecheck / test / 构建**，CI 结果直接引用 `gh pr view <n> --json statusCheckRollup`；仓库明确要求本地跑时才跑，并说明跑了什么。未运行不要声称运行过。
 5. 结论只用「通过 / 拒绝 / 不确定」并附理由，交用户选择。
-6. PR 侧只发评审意见，不合并、不推送、不改作者分支；工作项侧只评论，不认领、不改状态、不改负责人。
+6. PR 侧用 `gh pr review` 提交 APPROVE / REQUEST_CHANGES / COMMENT，不合并、不推送、不改作者分支；工作项侧只评论，不认领、不改状态、不改负责人。
 7. 结束移除 worktree 和临时分支。
+
+可借助仓库自带的 code-review skill 或双轴检查，但不作为强制要求。
 
 ## 10. 文档分层与信息沉淀
 
-**`docs/` 是唯一的长期文档根目录。** 按主题建子目录：
+**`docs/` 是默认的长期文档根目录**，但仓库已有文档约定时（根 `AGENTS.md` / `CONTRIBUTING` / 既有目录结构）从其约定。没有约定时按主题建子目录：
 
 | 目录 | 内容 |
 |---|---|
