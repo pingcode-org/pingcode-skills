@@ -185,7 +185,7 @@ Conventional Commits：
    gh pr create --base <集成分支>
    ```
 2. PR 描述写清：变更、原因、验证、风险与回滚。
-3. 等 CI 与必需审批通过；不自行合并。
+3. PR 创建后按「询问评审通知」征询用户意见（可选：通知评审人 / 只提交不通知），等 CI 与必需审批通过；不自行合并。
 4. 用户确认后 squash 合并：
    ```bash
    gh pr merge <n> --squash --delete-branch
@@ -193,6 +193,40 @@ Conventional Commits：
    - 不用 `--merge` / `--rebase` / `--auto`，不用 `--admin` 绕过保护。
    - 删除远端分支前确认 PR 已 MERGED；误删导致 PR 关闭时，推回分支后 `gh pr reopen` 再合并。
 5. 合并后切回集成分支、`git pull --ff-only`、删除本地工作分支。
+
+### 询问评审通知（开 PR 后必做）
+
+开完 PR 后**必须主动问用户是否发评论提醒评审**。是否通知不是必须的，但每次都得问；未得到答复前不发评论、不分配 reviewer。
+
+1. **准备候选**：从工作项负责人/参与人、项目成员、仓库协作者中挑 1~3 人，尽量标出 GitHub 账号，若找不到就写“未找到”。
+   ```bash
+   pc pjm workitem get <工作项id>        # 负责人、参与人
+   pc organization user list --keywords "<姓名或登录名>"   # 拿到用户 ID、登录名、邮箱
+
+   gh api users/<github-login> --jq '{login,name,email}'
+   gh api orgs/<github-org>/members --paginate --jq '.[].login'
+   ```
+   - GitHub 映射优先同名 login，其次邮箱前缀、组织成员名单、`git log` 提交作者或姓名比对。
+   - 映射不确定就标“未确认”，不要凭昵称猜。
+2. **向用户提问**：把候选（含 GitHub 映射）和三个选项一并给出：
+   - 选候选中的某人；
+   - 指定其他人（姓名或登录名，再由你解析成 `pc` 用户 ID）；
+   - 只提交、不通知（不发评论、不加 reviewer）。
+3. **用户选「通知」时**：只 @ 用户指定的人，不擅自多 @。
+   - PingCode 工作项评论（mention 格式，必须）：
+     ```bash
+     pc comments create --data '{"principal_type":"workitem","principal_id":"<工作项id>","content":"[@<用户ID>|<登录名>] 麻烦评审 PR：<PR URL>\n\n变更概要……"}'
+     ```
+     提及语法只认 `[@<用户ID>|<登录名>]`，只写 `@登录名` 不触发通知；遵守 URL 边界规则（URL 后必须换行或空格）。
+   - GitHub（尽力而为，仅当账号已确认）：
+     ```bash
+     gh api -X POST repos/<owner>/<repo>/pulls/<n>/requested_reviewers \
+       -f 'reviewers[]=<github-login>'
+     gh pr comment <n> --body '@<github-login> 麻烦评审一下，谢谢'
+     ```
+     部分仓库用 `gh pr edit --add-reviewer` 会因 Projects (classic) 弃用报 GraphQL 错误，改用上面的 REST API；只加 requested reviewer 不会在 PR 时间线产生 @ 通知，评论 @ 必须单独发送。找不到账号就跳过并告知用户。
+4. **用户选「只提交」时**：不发评论、不加 reviewer，也不要“顺手”@ 一下；后续用户要求补发再补。
+5. **汇报结果**：明确告诉用户本次是否通知、通知了谁、走了哪些通道（PingCode / GitHub 做了或未做及原因）、PR 当前状态（等待评审 / CI 失败 / 可合并）；任务收尾时再提醒一次，评审未通过前不合并。
 
 ### PR 落后于 base（BEHIND）
 
@@ -314,6 +348,11 @@ CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$REPO_NAME"
 - 不澄清需求、不先给方案就落盘改代码。
 - 直接在集成分支改代码并提交。
 - 未确认就创建分支、推送、开 PR 或合并。
+- 开 PR 后不问用户就直接发 @ 评论、加 reviewer，或相反——不问就默默跳过。
+- 用户明确选了「只提交」还强行 @ 人或加 reviewer，或擅自多 @ 用户没指定的人。
+- 用户指定了人，却只加 GitHub reviewer 没在工作项评论里 @。
+- 未核实 PingCode 用户与 GitHub 帐户的映射就 @ 错人，或把猜测的 login 当真。
+- 开 PR 后不告诉用户本次是否通知、通知了谁、PR 处于什么状态。
 - 把无关改动混进一个提交，或提交生成物/依赖目录。
 - 没跑验证却说“测试通过”。
 - 用 merge commit 同步 base，或 `--admin` 绕过保护。
