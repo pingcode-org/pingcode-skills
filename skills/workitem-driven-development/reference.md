@@ -4,7 +4,7 @@
 
 ## 0. 触发与变量
 
-仅当任务带 `#<Identifier>`（如 `#ABC-42`）且要求开发/修复/实现/继续/评审/合并时启用。
+仅当任务带 `#<Identifier>`（如 `#ABC-42`；Ship 产品工单形如 `#ITS-T3745`）且要求开发/修复/实现/继续/评审/合并时启用。
 
 ```bash
 IDENTIFIER="ABC-42"                  # 传给 pc 时去掉 #
@@ -17,6 +17,10 @@ CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$REPO_NAME"
 - 没有编号的普通任务不要套用认领、评论、编号分支命名等规则。
 
 ## 1. 取工作项详情
+
+先判编号类型：项目工作项走 `pc pjm workitem ...`；Ship 产品工单（如 `#ITS-T3745`）走 `pc ship ticket ...`。拿不准时先试 pjm get，404 再换 ship。
+
+项目工作项：
 
 ```bash
 pc pjm workitem get ABC-42
@@ -44,6 +48,19 @@ pc comments list --principal-type workitem --principal-id <工作项id>
   pc pjm workitem-relation list <工作项ID>
   ```
   按需读取关联需求、设计稿等。
+
+Ship 产品工单：
+
+```bash
+pc ship ticket get ITS-T3745                  # 接受 whole_identifier / short_id / id
+pc ship product list --keywords "<产品名>"    # 需要 list 时先解析 product id
+pc ship ticket list --product-id <产品ID> --keywords "T3745"
+```
+
+- **`ticket list` 必须带 `--product-id`**：不带时 `--keywords` 只按编号匹配，会命中其他产品的同号工单（如 `PC-T3745`）。
+- 只用 `get` 不需要先解析 product id；详情里的产品/状态/类型 id 复用作法与项目工作项相同。
+- 工单的评论、附件同样走 `pc comments` / `pc attachments`。
+- 后续认领、评论、分支、PR、收尾流程与项目工作项完全一致，不另开一套。
 
 ## 2. 类型判断
 
@@ -132,6 +149,7 @@ git pull --ff-only                  # 落后时
 - `<type>` 使用 Conventional Commits 类型（feat/fix/docs/refactor/test/chore 等）。
 - 用 `/` 分隔 Identifier 与分支名，不要用冒号；`#` 可以出现在分支名中。
 - 分支名用英文小写、数字、`-`，不要用空格或中文。
+- 无工作项编号的任务不套用上面的格式，按仓库自身约定（常见 `feat/<kebab>`、`fix/<kebab>`）；仓库没有约定时也用 `<type>/<kebab>`。
 
 工作期间：
 
@@ -173,7 +191,10 @@ Conventional Commits：
 
 - 运行仓库文档、根脚本或 CI 定义的验证命令；本 skill 不假定固定命令。
 - 没有统一入口时，按受影响包/模块运行 lint、typecheck、test、build。
-- 契约/代码生成变更后，重新生成并确认生成物已更新。
+- 契约/代码生成变更后，重新生成并确认生成物已更新；**生成物只能由生成器产生，不手改**。
+- **页面/视图改动的额外验证**：变更涉及路由页、弹层或用户可感知的交互流，且当前环境提供浏览器自动化工具（工具集含 `browser_*`，如 Playwright MCP）时，在单测之外用真实浏览器跑一遍冒烟——页面/路由可达、关键交互（编辑、保存、切换、提交）符合预期、控制台无报错；这类验证是补充，**不替代也不削减** co-located 单测。
+  - 前置：先按仓库说明启动宿主应用及其依赖（纯前端改动可只起 dev server 并走其代理）；浏览器工具只驱动已运行的服务，不负责起服务。
+  - 环境没有这类工具时：退化为既有自动化测试，并在 PR 描述里注明「未做真实浏览器验证」及原因；**不得声称执行过未实际运行的浏览器验证**。
 - 未运行、失败或环境缺失时如实报告，不要写“已验证”。
 - 全绿后再提交；只提交本任务相关文件。
 
@@ -190,9 +211,11 @@ Conventional Commits：
    ```bash
    gh pr merge <n> --squash --delete-branch
    ```
+   - 合并前先看可合并性：`gh pr view <n> --json statusCheckRollup,mergeStateStatus,reviewDecision`。
    - 不用 `--merge` / `--rebase` / `--auto`，不用 `--admin` 绕过保护。
    - 删除远端分支前确认 PR 已 MERGED；误删导致 PR 关闭时，推回分支后 `gh pr reopen` 再合并。
-5. 合并后切回集成分支、`git pull --ff-only`、删除本地工作分支。
+5. **已 Approve 的 PR 不为非阻塞建议追加动工**：Approve（含带建议通过）、CI 全绿且 `mergeStateStatus` 可合并时，P1/P2、「建议修改后合入」等非阻塞意见不阻塞合并；除非用户明确要求处理，直接进入合并确认，不为这些建议另开提交或重跑评审。只有 Request Changes / REQUEST_CHANGES、P0 阻断问题或 CI 失败才必须先修并重新请求评审。
+6. 合并后切回集成分支、`git pull --ff-only`、删除本地工作分支。
 
 ### 询问评审通知（开 PR 后必做）
 
@@ -213,10 +236,16 @@ Conventional Commits：
    - 指定其他人（姓名或登录名，再由你解析成 `pc` 用户 ID）；
    - 只提交、不通知（不发评论、不加 reviewer）。
 3. **用户选「通知」时**：只 @ 用户指定的人，不擅自多 @。
-   - PingCode 工作项评论（mention 格式，必须）：
+   - PingCode 工作项评论（mention 格式）：
      ```bash
-     pc comments create --data '{"principal_type":"workitem","principal_id":"<工作项id>","content":"[@<用户ID>|<登录名>] 麻烦评审 PR：<PR URL>\n\n变更概要……"}'
+     COMMENT="[@<用户ID>|<登录名>] 麻烦评审 PR：<PR URL>
+
+     变更概要……"
+     jq -n --arg content "$COMMENT" \
+       '{principal_type:"workitem", principal_id:"<工作项id>", content:$content}' \
+       | pc comments create --data @- --dry-run   # 先 dry-run 核对 content，去掉 --dry-run 再发
      ```
+     避免手拼 JSON；手工构造时 `\n` 才是换行，`\\n` 会留下字面量。
      提及语法只认 `[@<用户ID>|<登录名>]`，只写 `@登录名` 不触发通知；遵守 URL 边界规则（URL 后必须换行或空格）。
    - GitHub（尽力而为，仅当账号已确认）：
      ```bash
@@ -246,11 +275,17 @@ git push --force-with-lease
 1. 复查工作项状态：
    - 已是完成态（如“已修复”/“已完成”，常由 PR 合并自动化流转）则不再重复设置，仅核对结果。
    - 否则才把状态置为完成态，状态 id 按项目实际配置解析。
-2. 追加一条**纯文本**总结评论：交付内容、验证结果、后续衔接。
+2. 追加一条**纯文本**总结评论：交付内容、验证结果、评审通知情况（已通知谁 / 用户选择不通知）、后续衔接。
 
    ```bash
-   pc comments create --data '{"principal_type":"workitem","principal_id":"<工作项id>","content":"..."}'
+   COMMENT="交付内容……
+   - 验证：……
+   - 评审：……"
+   jq -n --arg content "$COMMENT" \
+     '{principal_type:"workitem", principal_id:"<工作项id>", content:$content}' \
+     | pc comments create --data @-
    ```
+   正文含换行时优先这种 `jq -n --arg` + `--data @-` 写法，必要时先加 `--dry-run` 核对。
 3. 需要 @ 人时用 `[@<用户ID>|<登录名>]`；用户 ID 经 `pc organization user list` 解析。只写 `@登录名` 不会触发提及。
 4. 评论换行分段、用 `-`/`1.` 列点，不写 HTML 标签。
 5. **URL 边界（PingCode 自动链接规则，实测）**：裸链接后紧跟全角标点（`（）：，。；！？`）时，PingCode 不把全角字符识别为 URL 终止，会把后续文字吞进超链接（如 `.../pull/639（base: develop）` 的链接实际变成 `.../639（base: develop）` 而失效）。因此：
@@ -272,10 +307,10 @@ git push --force-with-lease
    git worktree add --detach "<临时目录>/${REPO_NAME}-pr<n>" pr-<n>-review
    ```
    所有代码阅读、评论、分支/提交查看都在该 worktree 内完成；不切换当前工作分支、不改动当前工作区。
-4. **只做代码检查**：以仓库规范与设计文档为依据，检查规范性（风格、分层、依赖方向、测试约定）与需求符合性（是否实现工作项/PR 描述要求，有无遗漏或范围蔓延），问题引用具体文件与规则出处。
-5. **是否运行检查以仓库评审策略为准**；未运行 lint/typecheck/test/构建就不要声称运行过，CI 结果直接引用 PR status checks。
+4. **只做代码检查，不跑 Lint / Test / 构建**：以仓库规范与设计文档（各级 `AGENTS.md`、`docs/`）为规范与需求依据，检查规范性（风格、分层、依赖方向、测试约定）与需求符合性（是否实现工作项/PR 描述要求，有无遗漏或范围蔓延），问题引用具体文件与规则出处。
+5. **默认不在本地跑任何检查命令**；CI 结果直接查 PR 的 status checks（`gh pr view <n> --json statusCheckRollup`）并引用到结论里，CI 失败或缺失如实说明，不得声称跑过未执行的检查。仓库流程明确要求本地跑时才跑，并说明跑了哪些。
 6. **给结论**：只允许「通过 / 拒绝 / 不确定」三选一并附理由，提交用户选择。
-7. **PR 侧只发评审意见**：按用户选择用 `gh pr review` 提交 APPROVE / REQUEST_CHANGES / COMMENT；不合并、不推送、不改作者分支。
+7. **PR 侧只发评审意见**：按用户选择用 `gh pr review <n> --approve|--request-changes|--comment` 提交；不合并、不推送、不改作者分支（合并是作者/负责人的动作）。
 8. **工作项侧只评论**：结论与依据以纯文本评论发到工作项，与开始标记对应；不改状态、不认领、不改负责人。
 9. 结束移除 worktree 和临时分支：
    ```bash
@@ -285,7 +320,7 @@ git push --force-with-lease
 
 ## 12. 文档分层
 
-`docs/` 是长期文档的唯一根目录。
+`docs/` 是默认的长期文档根目录；**仓库已有文档约定时从仓库**（根 `AGENTS.md` / `CONTRIBUTING` / 既有目录结构优先）。没有约定时建议：
 
 ```text
 docs/
@@ -336,12 +371,27 @@ CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$REPO_NAME"
 收尾沉淀：
 
 - a) 是否产生可复用的引用数据？询问用户确认后写入本地缓存。
-- b) 是否产生有团队价值的经验？询问用户确认后写入 `docs/`，走正常 PR。
+- b) 是否产生有团队价值的经验？询问用户确认后写入 **该仓库** 的 `AGENTS.md` 或 `docs/`（仓库有既定沉淀位置时从仓库），走正常 PR。
+- c) 只有确实是跨仓库通用的结论，才另外提议回流到本 skill；不要只写进 skill 而漏掉仓库侧文档。
 - 用户拒绝则不保存；不得静默落盘，也不要把运行时笔记写回 skill 目录。
 
-## 14. 常见反模式
+## 14. 文件访问纪律
 
-- 没有 `#工作项编号` 却套用认领、评论、编号分支命名规则。
+探索仓库时默认**不读取、不遍历、不修改**机器生成的大目录/大文件：体积大、内容重复且非事实源，浪费上下文也容易被误导。
+
+- **判据以 `.gitignore` 为唯一基准**（根与各成员自己的 `.gitignore`），下面是类别不是穷举。
+- **依赖目录**：包管理器安装目录，如 `node_modules/`（含 `.pnpm/`、`node_modules/.vite/`）。
+- **构建产物**：`dist/`、`dist-test/`、`out/`、`storybook-static/`、`.prerender/`、`*.tsbuildinfo`、`*.test` 等可重建产物。
+- **生成的原生/脚手架工程**：代码生成器产出的整棵目录树。
+- **工具缓存与覆盖率**：`.expo/`、`coverage/`、`*.lcov` 等删掉即可重建的中间态。
+- **本地环境与编辑器目录**：`.env`、`.env.*`、`.idea/`、`.vscode/`、`.claude/`、`.cursor/` —— 不主动访问；其中密钥**不得输出到对话、不得写入任何文件、不得提交**。
+- 锁文件与 `*.log` 体积大但不是目录：按需 grep 取命中片段，**不整读**。
+
+## 15. 常见反模式
+
+- 没有 `#工作项编号` 却套用认领、评论、编号分支命名规则；或反过来，有编号却用仓库的 `feat/` 格式。
+- 把 Ship 产品工单（`#ITS-xxx`）当项目工作项去 `pc pjm workitem get`，或不带 `--product-id` 就 `ticket list`。
+- 手拼含换行的评论 JSON，导致正文出现字面量 `\n`；发送前不做 `--dry-run` 核对。
 - 用 `workitem list --identifier <数字>` 取详情，跨项目命中同号工作项。
 - 直接开发 Feature，不先拆用户故事。
 - 不检查状态/负责人就认领，或对当前状态重复发起流转。
@@ -354,9 +404,20 @@ CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$REPO_NAME"
 - 未核实 PingCode 用户与 GitHub 帐户的映射就 @ 错人，或把猜测的 login 当真。
 - 开 PR 后不告诉用户本次是否通知、通知了谁、PR 处于什么状态。
 - 把无关改动混进一个提交，或提交生成物/依赖目录。
-- 没跑验证却说“测试通过”。
+- 没跑验证却说“测试通过”；或环境没有浏览器自动化工具却声称做过真实浏览器验证。
+- 手改 codegen / 构建产物，而不是重新生成。
+- 主动读取或改动 `node_modules/`、`dist/`、`coverage/`、生成的原生工程等 `.gitignore` 覆盖的目录；把密钥/`.env` 内容贴进对话或写进文件。
+- 把本 skill 当唯一事实源，忽略仓库自己的 `AGENTS.md` / `CONTRIBUTING` / CI 配置。
 - 用 merge commit 同步 base，或 `--admin` 绕过保护。
 - 评审时在当前工作区切分支、跑构建，影响他人未提交改动。
 - 把设计文档写在源码目录、个人笔记或聊天记录里。
 - 文档复制 schema 字段，形成第二事实源。
 - 把 token、密钥、个人信息写入缓存或提交历史。
+
+## 16. 与仓库自身规范的关系
+
+本 skill 是通用缺省实现，不是唯一事实源：
+
+- **仓库规范优先**：目标仓库的 `AGENTS.md` / `CONTRIBUTING` / CI 配置与本文冲突时，以仓库为准；仓库未写的地方才用本文默认值。
+- **新经验先进仓库**：在某仓库摸到的结论（scope 要求、URL 边界、命令参数变化等）先回流到该仓库的 `AGENTS.md` / `docs/`，只有确属跨仓库通用的部分才提议改本 skill。
+- 反向也成立：发现本 skill 与新版本 CLI 行为不一致时，以 `pc --help` 与实测为准，并把差异记进仓库文档。
