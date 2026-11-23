@@ -246,7 +246,7 @@ Conventional Commits：
        | pc comments create --data @- --dry-run   # 先 dry-run 核对 content，去掉 --dry-run 再发
      ```
      避免手拼 JSON；手工构造时 `\n` 才是换行，`\\n` 会留下字面量。
-     提及语法只认 `[@<用户ID>|<登录名>]`，只写 `@登录名` 不触发通知；遵守 URL 边界规则（URL 后必须换行或空格）。
+     提及语法只认 `[@<用户ID>|<登录名>]`，只写 `@登录名` 不触发通知；遵守链接 / 引用边界规则（URL、分支名、`#编号` 后必须换行或空格）。
    - GitHub（尽力而为，仅当账号已确认）：
      ```bash
      gh api -X POST repos/<owner>/<repo>/pulls/<n>/requested_reviewers \
@@ -288,10 +288,10 @@ git push --force-with-lease
    正文含换行时优先这种 `jq -n --arg` + `--data @-` 写法，必要时先加 `--dry-run` 核对。
 3. 需要 @ 人时用 `[@<用户ID>|<登录名>]`；用户 ID 经 `pc organization user list` 解析。只写 `@登录名` 不会触发提及。
 4. 评论换行分段、用 `-`/`1.` 列点，不写 HTML 标签。
-5. **URL 边界（PingCode 自动链接规则，实测）**：裸链接后紧跟全角标点（`（）：，。；！？`）时，PingCode 不把全角字符识别为 URL 终止，会把后续文字吞进超链接（如 `.../pull/639（base: develop）` 的链接实际变成 `.../639（base: develop）` 而失效）。因此：
-   - 裸链接后只接**空格或换行**，再写补充说明；禁止 URL 与全角括号/冒号直接相连。
-   - 安全写法：分行（URL 独占一行），或 URL 后留空格再接半角括号，如 `PR：https://github.com/atinc/reping/pull/639 (base: develop)`。
-   - 半角 `)`/`]`、空格、换行是安全边界；全角标点不是。发送前检查每条含 URL 的评论。
+5. **链接 / 引用边界（PingCode 自动链接规则，实测）**：裸链接、分支名（如 `#REP-1088/(feat)project-loading-skeleton`）与 `#编号` 引用后紧跟全角标点（`（）：，。；！？`）时，PingCode 不把全角字符识别为链接终止，会把后续文字吞进超链接：`.../pull/639（base: develop）` 的链接会变成 `.../639（base: develop）` 而失效，`#REP-1088/(feat)project-loading-skeleton（commit 7b4d5c94，已推送）` 会把 `（commit…）` 并入分支链接。因此：
+   - 链接、分支名、`#编号` 后只接**空格或换行**，再写补充说明；禁止与全角括号/冒号/逗号直接相连。
+   - 安全写法：分行（片段独占一行），或片段后留空格再接半角括号/全角说明，如 `PR：https://github.com/atinc/reping/pull/639 (base: develop)`、`- 分支：#REP-1088/(feat)project-loading-skeleton （commit 7b4d5c94，已推送）`。
+   - 半角 `)`/`]`、空格、换行是安全边界；全角标点不是。发送前检查每条含链接或分支号的评论。
 6. 过程信息只留在工作项评论，不在本地另存副本。
 
 ## 11. Code Review 流程
@@ -419,5 +419,5 @@ CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$REPO_NAME"
 本 skill 是通用缺省实现，不是唯一事实源：
 
 - **仓库规范优先**：目标仓库的 `AGENTS.md` / `CONTRIBUTING` / CI 配置与本文冲突时，以仓库为准；仓库未写的地方才用本文默认值。
-- **新经验先进仓库**：在某仓库摸到的结论（scope 要求、URL 边界、命令参数变化等）先回流到该仓库的 `AGENTS.md` / `docs/`，只有确属跨仓库通用的部分才提议改本 skill。
+- **新经验先进仓库**：在某仓库摸到的结论（scope 要求、链接 / 引用边界、命令参数变化等）先回流到该仓库的 `AGENTS.md` / `docs/`，只有确属跨仓库通用的部分才提议改本 skill。
 - 反向也成立：发现本 skill 与新版本 CLI 行为不一致时，以 `pc --help` 与实测为准，并把差异记进仓库文档。
