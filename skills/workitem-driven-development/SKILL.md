@@ -101,10 +101,11 @@ pc pjm workitem update <工作项id> --data '{"state_id":"<进行中状态ID>"}'
 4. 沟通中明确的关键结论、范围边界、实施进展、完成总结，及时以**纯文本**评论发到工作项：
    - 用换行分段、`-`/`1.` 列点，不要写 HTML 标签。
    - **评论正文用 JSON 序列化生成，不要手拼**：正文含换行/引号/反斜杠时，用 `jq -n --arg content "$COMMENT"`（或等价方式）生成请求体，经 `--data @-` 或 `--data @文件` 传入。手写 JSON 时只有 `\n` 表示换行，写成 `\\n` 会在正文留下字面量 `\n`；发送前用 `--dry-run` 核对 `content` 原样正确。
-   - **链接 / 引用边界（PingCode 自动链接规则，实测）**：评论里的裸链接（GitHub PR、文件 URL 等）、分支名（如 `#REP-1088/(feat)project-loading-skeleton`）与 `#编号` 引用后若紧跟全角标点（`（）：，。；！？`），PingCode 不会把它识别为链接终止，会把后面的文字一并吞进超链接导致链接失效或变形。典型症状：`- 分支：#REP-1088/(feat)project-loading-skeleton（commit 7b4d5c94，已推送）` 里的 `（commit…）` 被并入分支链接。规则：
+   - **链接 / 引用边界（所有输出通用；PingCode 自动链接规则实测）**：这条规则**不限于 PingCode 评论**——工作项评论、PR 描述、对话回复与完成总结等任何输出都要遵守。裸链接（GitHub PR、文件 URL 等）、分支名（如 `#REP-1088/(feat)project-loading-skeleton`）与 `#编号` 引用后若紧跟全角标点（`（）：，。；！？`），PingCode 不会把它识别为链接终止，会把后面的文字一并吞进超链接导致链接失效或变形。典型症状：`- 分支：#REP-1088/(feat)project-loading-skeleton（commit 7b4d5c94，已推送）` 里的 `（commit…）` 被并入分支链接。规则：
      - 任何 URL、分支名、`#编号` 之后必须接**空格或换行**，再接说明文字或全角标点；禁止 `https://x.com/639（base: develop）`、`#REP-1088/(feat)xxx（commit abc，已推送）` 这类写法。
      - 推荐把补充信息另起一行或用半角括号并与片段之间留空格，例如：`PR：https://github.com/atinc/reping/pull/639 （base: develop）`、`- 分支：#REP-1088/(feat)project-loading-skeleton （commit 7b4d5c94，已推送）`。
-     - 半角 `)`/`]`、空格、换行是安全边界；全角括号/冒号/逗号不是。发送前逐条检查含链接或分支号的评论。
+     - 半角 `)`/`]`、空格、换行是安全边界；全角括号/冒号/逗号不是。
+     - 发送前逐条检查含链接或分支号的片段：评论、PR 描述、对话回复与总结都包括；每个片段后面要么是空格/换行，要么就是文本结尾。
    - 需要 @ 人时用 `[@<用户ID>|<登录名>]`（用户 ID 经 `pc organization user list` 解析）；只写 `@登录名` 不会触发提及。
    - 过程信息只留在工作项评论，不在本地另存副本。
 
